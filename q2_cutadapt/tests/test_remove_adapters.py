@@ -6,11 +6,13 @@
 # The full license is in the file LICENSE, distributed with this software.
 # ----------------------------------------------------------------------------
 
-from ._remove_adapters import remove_adapters_single
-from ._version import get_versions
+from qiime2.plugin.testing import TestPluginBase
+
+# from q2_cutadapt import remove_adapters_single
 
 
-__version__ = get_versions()['version']
-del get_versions
+class TestRemoveAdaptersSingle(TestPluginBase):
+    package = 'q2_cutadapt.tests'
 
-__all__ = ['remove_adapters_single']
+    def test_remove_three_prime(self):
+        pass
