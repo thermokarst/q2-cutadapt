@@ -11,20 +11,7 @@ import qiime2.plugin.model as model
 
 class CutadaptStatsFmt(model.TextFileFormat):
     def sniff(self):
-        with self.open() as fh:
-            count = 0
-            while count < 10:
-                line = fh.readline()
-
-                if line == '':
-                    # EOF
-                    break
-                else:
-                    cells = line.split('\t')
-                    if len(cells) < 4:
-                        return False
-                    count += 1
-            return False if count == 0 else True
+        return self.path.stat().st_size > 0
 
 
 CutadaptStatsDirFmt = model.SingleFileDirectoryFormat(

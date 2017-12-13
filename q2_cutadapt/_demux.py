@@ -22,7 +22,7 @@ from q2_types.multiplexed_sequences import (
     MultiplexedSingleEndBarcodeInSequenceDirFmt,
 )
 
-from ._format import CutadaptStatsDirFmt
+from ._format import CutadaptStatsFmt, CutadaptStatsDirFmt
 
 
 def run_command(cmd, verbose=True):
@@ -33,11 +33,14 @@ def run_command(cmd, verbose=True):
           'no longer exist.')
     print('\nCommand:', end=' ')
     print(' '.join(cmd), end='\n\n')
-    subprocess.run(cmd, check=True)
+    process = subprocess.run(cmd, check=True, stdout=subprocess.PIPE,
+                             universal_newlines=True)
+    print(process.stdout, end='')
+    return process
 
 
 def _build_demux_command(seqs_dir_fmt, barcode_series, per_sample_dir_fmt,
-                         stats_dir_fmt, untrimmed_dir_fmt):
+                         untrimmed_dir_fmt):
     cmd = ['cutadapt']
     for (sample_id, barcode) in barcode_series.iteritems():
         cmd = cmd + ['-g', '%s=%s' % (sample_id, barcode)]
@@ -45,7 +48,6 @@ def _build_demux_command(seqs_dir_fmt, barcode_series, per_sample_dir_fmt,
         # {name} is a cutadapt convention for interpolating the sample id
         # into the filename.
         '-o', '%s/{name}.fastq.gz' % str(per_sample_dir_fmt),
-        '--info-file', '%s/stats.tsv' % str(stats_dir_fmt),
         '--untrimmed-output', '%s/forward.fastq.gz' % str(untrimmed_dir_fmt),
         str(seqs_dir_fmt.file.view(FastqGzFormat)),
     ]
@@ -91,6 +93,19 @@ def _write_empty_fastq_to_mux_barcode_in_seq_fmt(seqs_dir_fmt):
     seqs_dir_fmt.file.write_data(fastq, FastqGzFormat)
 
 
+def _parse_cutadapt_stdout(stdout):
+    parsed = stdout.split('\n')
+    parsed = parsed[2:]
+    return '\n'.join(parsed)
+
+
+def _write_stdout_to_stats(stats_dir_fmt, stdout):
+    parsed_stats = _parse_cutadapt_stdout(stdout)
+    stats_fmt = CutadaptStatsFmt()
+    stats_fmt.path.write_text(parsed_stats)
+    stats_dir_fmt.file.write_data(stats_fmt, CutadaptStatsFmt)
+
+
 def demux_single(ctx, seqs, barcodes):
     barcode_series = barcodes.to_series()
     seqs = seqs.view(MultiplexedSingleEndBarcodeInSequenceDirFmt)
@@ -101,12 +116,13 @@ def demux_single(ctx, seqs, barcodes):
     _write_empty_fastq_to_mux_barcode_in_seq_fmt(untrimmed)
 
     cmd = _build_demux_command(seqs, barcode_series, per_sample_sequences,
-                               stats, untrimmed)
-    run_command(cmd)
+                               untrimmed)
+    process = run_command(cmd)
 
     _rename_files(per_sample_sequences, barcode_series)
     _write_manifest_in_results(per_sample_sequences)
     _write_metadata_yaml_in_results(per_sample_sequences)
+    _write_stdout_to_stats(stats, process.stdout)
 
     per_sample_sequences = Artifact.import_data(
         'SampleData[SequencesWithQuality]', per_sample_sequences)
