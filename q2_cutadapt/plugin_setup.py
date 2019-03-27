@@ -65,6 +65,7 @@ plugin.methods.register_function(
     },
     outputs=[
         ('trimmed_sequences', SampleData[SequencesWithQuality]),
+        ('untrimmed_sequences', SampleData[SequencesWithQuality]),
     ],
     input_descriptions={
         'demultiplexed_sequences': 'The single-end sequences to be trimmed.',
@@ -105,6 +106,7 @@ plugin.methods.register_function(
     },
     output_descriptions={
         'trimmed_sequences': 'The resulting trimmed sequences.',
+        'untrimmed_sequences': 'The untrimmed sequences.',
     },
     name='Find and remove adapters in demultiplexed single-end sequences.',
     description='Search demultiplexed single-end sequences for adapters and '
@@ -137,6 +139,7 @@ plugin.methods.register_function(
     },
     outputs=[
         ('trimmed_sequences', SampleData[PairedEndSequencesWithQuality]),
+        ('untrimmed_sequences', SampleData[PairedEndSequencesWithQuality]),
     ],
     input_descriptions={
         'demultiplexed_sequences': 'The paired-end sequences to be trimmed.',
@@ -199,6 +202,7 @@ plugin.methods.register_function(
     },
     output_descriptions={
         'trimmed_sequences': 'The resulting trimmed sequences.',
+        'untrimmed_sequences': 'The untrimmed sequences.',
     },
     name='Find and remove adapters in demultiplexed paired-end sequences.',
     description='Search demultiplexed paired-end sequences for adapters and '

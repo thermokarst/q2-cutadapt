@@ -36,14 +36,26 @@ class TestTrimSingle(TestPluginBase):
                                            self.get_data_path('single-end'))
         adapter = ['TACGGAGGATCC']
         with redirected_stdio(stdout=os.devnull):
-            obs_art, = self.plugin.methods['trim_single'](demuxed_art,
-                                                          front=adapter)
+            artifacts = self.plugin.methods['trim_single'](
+                demuxed_art, front=adapter)
+        obs_trimmed_artfact, obs_untrimmed_artfact = artifacts
         demuxed = demuxed_art.view(SingleLanePerSampleSingleEndFastqDirFmt)
         demuxed_seqs = demuxed.sequences.iter_views(FastqGzFormat)
-        obs = obs_art.view(SingleLanePerSampleSingleEndFastqDirFmt)
-        obs_seqs = obs.sequences.iter_views(FastqGzFormat)
+        obs_trimmed = obs_trimmed_artfact.view(
+            SingleLanePerSampleSingleEndFastqDirFmt)
+        obs_trimmed_seqs = obs_trimmed.sequences.iter_views(FastqGzFormat)
+        obs_untrimmed = obs_untrimmed_artfact.view(
+            SingleLanePerSampleSingleEndFastqDirFmt)
+        obs_untrimmed_seqs = obs_untrimmed.sequences.iter_views(FastqGzFormat)
         # Iterate over each sample, side-by-side
-        for (_, exp_fp), (_, obs_fp) in zip(demuxed_seqs, obs_seqs):
+        print('#'*100)
+        for (_, obs_fp) in obs_untrimmed_seqs:
+            print(obs_fp)
+            # obs_fh = gzip.open(str(obs_fp), 'rt')
+            # for records in itertools.zip_longest(*[obs_fh] * 4):
+            #     print(records)
+        print('#'*100)
+        for (_, exp_fp), (_, obs_fp) in zip(demuxed_seqs, obs_trimmed_seqs):
             exp_fh = gzip.open(str(exp_fp), 'rt')
             obs_fh = gzip.open(str(obs_fp), 'rt')
             # Iterate over expected and observed reads, side-by-side
@@ -140,12 +152,14 @@ class TestTrimUtilsSingle(TestPluginBase):
         self.demux_seqs = SingleLanePerSampleSingleEndFastqDirFmt(
             self.get_data_path('single-end'), mode='r')
         self.trimmed_seqs = CasavaOneEightSingleLanePerSampleDirFmt()
+        self.untrimmed_seqs = CasavaOneEightSingleLanePerSampleDirFmt()
 
     def test_build_trim_command_typical(self):
         df = self.demux_seqs.manifest.view(pd.DataFrame)
         for _, fwd in df.itertuples():
             obs = _build_trim_command(fwd, None,
                                       self.trimmed_seqs,
+                                      self.untrimmed_seqs,
                                       cores=0,
                                       adapter_f=['AAAA'],
                                       front_f=['GGGG'],
@@ -176,8 +190,8 @@ class TestTrimUtilsSingle(TestPluginBase):
     def test_build_trim_command_multiple_adapters(self):
         df = self.demux_seqs.manifest.view(pd.DataFrame)
         for _, fwd in df.itertuples():
-            obs = _build_trim_command(fwd, None,
-                                      self.trimmed_seqs,
+            obs = _build_trim_command(fwd, None, self.trimmed_seqs,
+                                      self.untrimmed_seqs,
                                       adapter_f=['AAAA', 'GGGG', 'CCCC'])
             obs = ' '.join(obs)
 
@@ -190,8 +204,8 @@ class TestTrimUtilsSingle(TestPluginBase):
     def test_build_trim_command_no_adapters_or_flags(self):
         df = self.demux_seqs.manifest.view(pd.DataFrame)
         for _, fwd in df.itertuples():
-            obs = _build_trim_command(fwd, None,
-                                      self.trimmed_seqs)
+            obs = _build_trim_command(fwd, None, self.trimmed_seqs,
+                                      self.untrimmed_seqs)
             obs = ' '.join(obs)
 
             self.assertTrue('--adapter' not in obs)
@@ -211,12 +225,14 @@ class TestTrimUtilsPaired(TestPluginBase):
         self.demux_seqs = SingleLanePerSamplePairedEndFastqDirFmt(
             self.get_data_path('paired-end'), mode='r')
         self.trimmed_seqs = CasavaOneEightSingleLanePerSampleDirFmt()
+        self.untrimmed_seqs = CasavaOneEightSingleLanePerSampleDirFmt()
 
     def test_build_trim_command_typical(self):
         df = self.demux_seqs.manifest.view(pd.DataFrame)
         for _, fwd, rev in df.itertuples():
             obs = _build_trim_command(fwd, rev,
                                       self.trimmed_seqs,
+                                      self.untrimmed_seqs,
                                       cores=0,
                                       adapter_f=['AAAA'],
                                       front_f=['GGGG'],
@@ -256,6 +272,7 @@ class TestTrimUtilsPaired(TestPluginBase):
         df = self.demux_seqs.manifest.view(pd.DataFrame)
         for _, fwd, rev in df.itertuples():
             obs = _build_trim_command(fwd, rev, self.trimmed_seqs,
+                                      self.untrimmed_seqs,
                                       adapter_f=['AAAA', 'GGGG', 'CCCC'],
                                       adapter_r=['TTTT', 'CCCC', 'GGGG'])
             obs = ' '.join(obs)

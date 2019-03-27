@@ -47,7 +47,7 @@ _trim_defaults = {
 }
 
 
-def _build_trim_command(f_read, r_read, trimmed_seqs,
+def _build_trim_command(f_read, r_read, trimmed_seqs, untrimmed_seqs,
                         cores=_trim_defaults['cores'],
                         adapter_f=_trim_defaults['adapter_f'],
                         front_f=_trim_defaults['front_f'],
@@ -64,17 +64,21 @@ def _build_trim_command(f_read, r_read, trimmed_seqs,
                         match_adapter_wildcards=_trim_defaults[
                             'match_adapter_wildcards'],
                         ):
+    f_fn = os.path.basename(f_read)
     cmd = [
         'cutadapt',
         '--cores', str(cores),
         '--error-rate', str(error_rate),
         '--times', str(times),
         '--overlap', str(overlap),
-        '-o', str(trimmed_seqs.path / os.path.basename(f_read)),
+        '-o', str(trimmed_seqs.path / f_fn),
+        '--untrimmed-output', str(untrimmed_seqs.path / f_fn)
     ]
 
     if r_read is not None:
-        cmd += ['-p', str(trimmed_seqs.path / os.path.basename(r_read))]
+        r_fn = os.path.basename(r_read)
+        cmd += ['--untrimmed-paired-output', str(untrimmed_seqs.path / r_fn)]
+        cmd += ['-p', str(trimmed_seqs.path / r_fn)]
 
     if adapter_f is not None:
         for adapter in adapter_f:
@@ -125,20 +129,22 @@ def trim_single(demultiplexed_sequences:
                 bool = _trim_defaults['match_read_wildcards'],
                 match_adapter_wildcards:
                 bool = _trim_defaults['match_adapter_wildcards']) -> \
-                    CasavaOneEightSingleLanePerSampleDirFmt:
+                    (CasavaOneEightSingleLanePerSampleDirFmt,
+                     CasavaOneEightSingleLanePerSampleDirFmt):
     trimmed_sequences = CasavaOneEightSingleLanePerSampleDirFmt()
+    untrimmed_sequences = CasavaOneEightSingleLanePerSampleDirFmt()
     cmds = []
     df = demultiplexed_sequences.manifest.view(pd.DataFrame)
     for _, fwd in df.itertuples():
-        cmd = _build_trim_command(fwd, None,
-                                  trimmed_sequences, cores, adapter, front,
+        cmd = _build_trim_command(fwd, None, trimmed_sequences,
+                                  untrimmed_sequences, cores, adapter, front,
                                   anywhere, None, None, None, error_rate,
                                   indels, times, overlap, match_read_wildcards,
                                   match_adapter_wildcards)
         cmds.append(cmd)
 
     run_commands(cmds)
-    return trimmed_sequences
+    return trimmed_sequences, untrimmed_sequences
 
 
 def trim_paired(demultiplexed_sequences:
@@ -158,18 +164,20 @@ def trim_paired(demultiplexed_sequences:
                 bool = _trim_defaults['match_read_wildcards'],
                 match_adapter_wildcards:
                 bool = _trim_defaults['match_adapter_wildcards']) -> \
-                    CasavaOneEightSingleLanePerSampleDirFmt:
+                    (CasavaOneEightSingleLanePerSampleDirFmt,
+                     CasavaOneEightSingleLanePerSampleDirFmt):
     trimmed_sequences = CasavaOneEightSingleLanePerSampleDirFmt()
+    untrimmed_sequences = CasavaOneEightSingleLanePerSampleDirFmt()
     cmds = []
     df = demultiplexed_sequences.manifest.view(pd.DataFrame)
     for _, fwd, rev in df.itertuples():
-        cmd = _build_trim_command(fwd, rev, trimmed_sequences, cores,
-                                  adapter_f, front_f,
-                                  anywhere_f, adapter_r, front_r, anywhere_r,
-                                  error_rate, indels, times, overlap,
-                                  match_read_wildcards,
+        cmd = _build_trim_command(fwd, rev, trimmed_sequences,
+                                  untrimmed_sequences, cores, adapter_f,
+                                  front_f, anywhere_f, adapter_r, front_r,
+                                  anywhere_r, error_rate, indels, times,
+                                  overlap, match_read_wildcards,
                                   match_adapter_wildcards)
         cmds.append(cmd)
 
     run_commands(cmds)
-    return trimmed_sequences
+    return trimmed_sequences, untrimmed_sequences
